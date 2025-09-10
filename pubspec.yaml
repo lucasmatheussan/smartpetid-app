@@ -1,0 +1,45 @@
+name: smartpet_id
+description: SmartPet ID - Tecnologia de Identificação Multifatorial para Pets
+
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=2.19.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Dependências para câmera e seleção de imagens
+  camera: ^0.10.5+5
+  image_picker: ^1.0.4
+  
+  # Dependências para UI
+  cupertino_icons: ^1.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+  flutter_launcher_icons: ^0.13.1 
+
+flutter:
+  uses-material-design: true
+
+  # Assets do aplicativo
+  assets:
+    - assets/
+    - assets/cachorro.jpeg
+    - assets/cachorror2.jpeg
+    - assets/app_icon_1024.png
+    - assets/app_icon_512.png
+    - assets/app_icon_192.png
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/app_icon_192.png" # Caminho do seu novo ícone
+  min_sdk_android: 21 # se necessário
+
