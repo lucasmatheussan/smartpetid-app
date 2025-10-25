@@ -28,5 +28,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Este aplicativo precisa acessar a câmera para identificar pets através de suas características biométricas.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Este aplicativo pode precisar acessar o microfone para funcionalidades de câmera.</string>
 </dict>
 </plist>

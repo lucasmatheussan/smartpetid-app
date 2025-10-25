@@ -11,6 +11,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   
   # Dependências para câmera e seleção de imagens
   camera: ^0.10.5+5
@@ -18,6 +20,17 @@ dependencies:
   
   # Dependências para UI
   cupertino_icons: ^1.0.2
+  
+  # Dependências para autenticação e HTTP
+  http: ^1.1.0
+  shared_preferences: ^2.2.2
+  
+  # Dependências para internacionalização
+  intl: ^0.20.2
+  flag: ^7.0.0
+  
+  # Dependência para gerenciamento de estado
+  provider: ^6.1.1
 
 dev_dependencies:
   flutter_test:
@@ -27,6 +40,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true
 
   # Assets do aplicativo
   assets:
