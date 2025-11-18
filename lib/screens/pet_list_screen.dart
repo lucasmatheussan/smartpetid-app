@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import 'pet_detail_screen.dart';
 import 'login_screen.dart';
 import '../l10n/app_localizations.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class PetListScreen extends StatefulWidget {
   const PetListScreen({super.key});
@@ -274,8 +275,8 @@ class _PetListScreenState extends State<PetListScreen> {
           borderRadius: BorderRadius.circular(20),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
+              child: Row(
+                children: [
                 // Imagem do pet
                 Container(
                   width: 70,
@@ -371,17 +372,77 @@ class _PetListScreenState extends State<PetListScreen> {
                   ),
                 ),
                 // Ícone de seta
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_forward_ios,
-                    color: Color(0xFF4CAF50),
-                    size: 16,
-                  ),
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'QR Code',
+                      icon: const Icon(Icons.qr_code, color: Color(0xFF4CAF50)),
+                      onPressed: () {
+                        final qrData = 'focinhoid:pet:${pet['id']}';
+                        showDialog(
+                          context: context,
+                          builder: (context) {
+                            return Dialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'QR do ${pet['name'] ?? 'Pet'}',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    QrImageView(
+                                      data: qrData,
+                                      version: QrVersions.auto,
+                                      size: 220,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      qrData,
+                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF4CAF50),
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        child: const Text('Fechar'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4CAF50).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_ios,
+                        color: Color(0xFF4CAF50),
+                        size: 16,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -32,6 +32,10 @@ dependencies:
   # Dependência para gerenciamento de estado
   provider: ^6.1.1
 
+  # QR Code
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^3.5.7
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
