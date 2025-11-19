@@ -80,5 +80,7 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NFCReaderUsageDescription</key>
+	<string>Este aplicativo usa NFC/RFC para reconhecer e gravar dados do animal.</string>
 </dict>
 </plist>

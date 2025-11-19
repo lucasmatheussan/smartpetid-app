@@ -12,6 +12,7 @@ import 'screens/scan_screens.dart';
 import 'screens/pet_list_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/qr_scanner_screen.dart';
+import 'screens/rfc_scanner_screen.dart';
 import 'services/auth_service.dart';
 import 'services/localization_service.dart';
 import 'l10n/app_localizations.dart';
@@ -91,6 +92,7 @@ class SmartPetApp extends StatelessWidget {
               '/register': (context) => RegisterScreen(),
               '/register-pet': (context) => RegisterPetScreen(),
               '/qr-scanner': (context) => const QrScannerScreen(),
+              '/rfc-scanner': (context) => const RfcScannerScreen(),
             },
             debugShowCheckedModeBanner: false,
           );
@@ -286,6 +288,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/qr-scanner');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.nfc, color: Colors.white),
+                title: const Text(
+                  'Ler RFC',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/rfc-scanner');
                 },
               ),
               ListTile(

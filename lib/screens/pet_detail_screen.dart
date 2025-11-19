@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:nfc_manager/nfc_manager.dart';
 import '../services/pet_identification_service.dart';
 import '../l10n/app_localizations.dart';
 
@@ -548,6 +551,19 @@ class _PetDetailScreenState extends State<PetDetailScreen> {
             ),
             const SizedBox(height: 16),
             _buildInfoRow(AppLocalizations.of(context)!.registrationDate, _formatDate(petData['registration_date'])),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _writeRfc,
+                icon: const Icon(Icons.nfc),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4CAF50),
+                  foregroundColor: Colors.white,
+                ),
+                label: const Text('Gravar RFC com dados do animal'),
+              ),
+            ),
           ],
         ),
       ),
@@ -666,5 +682,54 @@ class _PetDetailScreenState extends State<PetDetailScreen> {
     } catch (e) {
       return dateString;
     }
+  }
+
+  Future<void> _writeRfc() async {
+    try {
+      if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
+        _showSnack('Gravação de RFC disponível apenas em dispositivos móveis.');
+        return;
+      }
+
+      final isAvailable = await NfcManager.instance.isAvailable();
+      if (!isAvailable) {
+        _showSnack('NFC/RFC não disponível neste dispositivo.');
+        return;
+      }
+
+      final petId = petData['id'].toString();
+      final text = 'focinhoid:pet:$petId';
+      final deepLink = '${PetIdentificationService.baseUrl}/pets/$petId';
+
+      await NfcManager.instance.startSession(onDiscovered: (tag) async {
+        try {
+          final ndef = Ndef.from(tag);
+          if (ndef == null) {
+            throw Exception('Tag não suporta NDEF');
+          }
+          if (ndef.isWritable == false) {
+            throw Exception('Tag não é gravável');
+          }
+          final recordText = NdefRecord.createText(text);
+          final recordUri = NdefRecord.createUri(Uri.parse(deepLink));
+          final message = NdefMessage([recordText, recordUri]);
+          await ndef.write(message);
+          _showSnack('RFC gravado com sucesso');
+        } catch (e) {
+          _showSnack('Falha ao gravar RFC: ${e.toString()}');
+        } finally {
+          await NfcManager.instance.stopSession();
+        }
+      });
+    } catch (e) {
+      _showSnack('Erro: ${e.toString()}');
+    }
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: const Color(0xFF4CAF50)),
+    );
   }
 }

@@ -36,6 +36,10 @@ dependencies:
   qr_flutter: ^4.1.0
   mobile_scanner: ^3.5.7
 
+  # NFC / NDEF
+  nfc_manager: ^3.3.0
+  ndef: ^0.3.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
