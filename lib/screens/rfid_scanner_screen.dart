@@ -7,14 +7,14 @@ import '../services/auth_service.dart';
 import 'pet_detail_screen.dart';
 import 'login_screen.dart';
 
-class RfcScannerScreen extends StatefulWidget {
-  const RfcScannerScreen({super.key});
+class RfidScannerScreen extends StatefulWidget {
+  const RfidScannerScreen({super.key});
 
   @override
-  State<RfcScannerScreen> createState() => _RfcScannerScreenState();
+  State<RfidScannerScreen> createState() => _RfidScannerScreenState();
 }
 
-class _RfcScannerScreenState extends State<RfcScannerScreen> {
+class _RfidScannerScreenState extends State<RfidScannerScreen> {
   final PetIdentificationService _petService = PetIdentificationService();
   bool _sessionActive = false;
   String? _message;
@@ -31,7 +31,7 @@ class _RfcScannerScreenState extends State<RfcScannerScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Faça login para usar a leitura de RFC.'),
+            content: Text('Faça login para usar a leitura de RFID.'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -47,7 +47,7 @@ class _RfcScannerScreenState extends State<RfcScannerScreen> {
     final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
     if (!isMobile) {
       setState(() {
-        _message = 'RFC disponível apenas em dispositivos móveis.';
+        _message = 'RFID disponível apenas em dispositivos móveis.';
       });
       return;
     }
@@ -55,14 +55,14 @@ class _RfcScannerScreenState extends State<RfcScannerScreen> {
     final isAvailable = await NfcManager.instance.isAvailable();
     if (!isAvailable) {
       setState(() {
-        _message = 'NFC/RFC não disponível neste dispositivo.';
+        _message = 'NFC/RFID não disponível neste dispositivo.';
       });
       return;
     }
 
     setState(() {
       _sessionActive = true;
-      _message = 'Aproxime o RFC do dispositivo...';
+      _message = 'Aproxime o RFID do dispositivo...';
     });
 
     await NfcManager.instance.startSession(onDiscovered: (NfcTag tag) async {
@@ -70,7 +70,7 @@ class _RfcScannerScreenState extends State<RfcScannerScreen> {
         final petId = _extractPetId(tag);
         if (petId == null) {
           setState(() {
-            _message = 'RFC inválido. Use um RFC do SmartPet ID.';
+            _message = 'RFID inválido. Use um RFID do SmartPet ID.';
           });
         } else {
           final result = await _petService.getPetDetails(petId);
@@ -159,7 +159,7 @@ class _RfcScannerScreenState extends State<RfcScannerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ler RFC'),
+        title: const Text('Ler RFID'),
         backgroundColor: const Color(0xFFFF9800),
       ),
       body: Center(
@@ -170,7 +170,7 @@ class _RfcScannerScreenState extends State<RfcScannerScreen> {
             children: [
               const Icon(Icons.nfc, size: 64, color: Colors.grey),
               const SizedBox(height: 12),
-              const Text('Aproxime o RFC para reconhecer o animal'),
+              const Text('Aproxime o RFID para reconhecer o animal'),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _sessionActive ? null : _startScan,
@@ -178,7 +178,7 @@ class _RfcScannerScreenState extends State<RfcScannerScreen> {
                   backgroundColor: const Color(0xFFFF9800),
                   foregroundColor: Colors.white,
                 ),
-                child: Text(_sessionActive ? 'Lendo...' : 'Ler RFC'),
+                child: Text(_sessionActive ? 'Lendo...' : 'Ler RFID'),
               ),
               if (_message != null) ...[
                 const SizedBox(height: 16),

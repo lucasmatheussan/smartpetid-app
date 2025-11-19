@@ -555,13 +555,13 @@ class _PetDetailScreenState extends State<PetDetailScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _writeRfc,
+                onPressed: _writeRfid,
                 icon: const Icon(Icons.nfc),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4CAF50),
                   foregroundColor: Colors.white,
                 ),
-                label: const Text('Gravar RFC com dados do animal'),
+                label: const Text('Gravar RFID com dados do animal'),
               ),
             ),
           ],
@@ -684,16 +684,16 @@ class _PetDetailScreenState extends State<PetDetailScreen> {
     }
   }
 
-  Future<void> _writeRfc() async {
+  Future<void> _writeRfid() async {
     try {
       if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
-        _showSnack('Gravação de RFC disponível apenas em dispositivos móveis.');
+        _showSnack('Gravação de RFID disponível apenas em dispositivos móveis.');
         return;
       }
 
       final isAvailable = await NfcManager.instance.isAvailable();
       if (!isAvailable) {
-        _showSnack('NFC/RFC não disponível neste dispositivo.');
+        _showSnack('NFC/RFID não disponível neste dispositivo.');
         return;
       }
 
@@ -714,9 +714,9 @@ class _PetDetailScreenState extends State<PetDetailScreen> {
           final recordUri = NdefRecord.createUri(Uri.parse(deepLink));
           final message = NdefMessage([recordText, recordUri]);
           await ndef.write(message);
-          _showSnack('RFC gravado com sucesso');
+          _showSnack('RFID gravado com sucesso');
         } catch (e) {
-          _showSnack('Falha ao gravar RFC: ${e.toString()}');
+          _showSnack('Falha ao gravar RFID: ${e.toString()}');
         } finally {
           await NfcManager.instance.stopSession();
         }
