@@ -266,11 +266,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     return AppLocalizations.of(context)!
                                         .pleaseEnterEmail;
                                   }
-                                  if (!RegExp(
-                                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}\$')
+                                  // Validação simples que aceita TLDs longos e evita casos óbvios inválidos
+                                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                                       .hasMatch(value)) {
-                                    return AppLocalizations.of(context)!
-                                        .pleaseEnterValidEmail;
+                                      return AppLocalizations.of(context)!
+                                          .pleaseEnterValidEmail;
                                   }
                                   return null;
                                 },

@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://192.168.1.184:8000'; // URL do backend
+  static const String baseUrl = 'http://167.172.117.152:8000'; // URL do backend
   static const String tokenKey = 'auth_token';
   static const String userKey = 'user_data';
 

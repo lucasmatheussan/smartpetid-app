@@ -273,9 +273,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                         if (value == null || value.isEmpty) {
                                           return 'Por favor, insira sua ${AppLocalizations.of(context)!.password.toLowerCase()}';
                                         }
-                                        if (value.length < 6) {
-                                          return 'A ${AppLocalizations.of(context)!.password.toLowerCase()} deve ter pelo menos 6 caracteres';
-                                        }
                                         return null;
                                       },
                                     ),

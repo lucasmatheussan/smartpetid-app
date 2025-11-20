@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:nfc_manager/nfc_manager.dart';
 import '../services/pet_identification_service.dart';
+import '../services/auth_service.dart';
+import 'package:nfc_manager/nfc_manager.dart';
+import 'package:nfc_manager/nfc_manager_android.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:ndef_record/ndef_record.dart';
 import '../l10n/app_localizations.dart';
 
 class PetDetailScreen extends StatefulWidget {
@@ -685,45 +690,111 @@ class _PetDetailScreenState extends State<PetDetailScreen> {
   }
 
   Future<void> _writeRfid() async {
-    try {
-      if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
-        _showSnack('Gravação de RFID disponível apenas em dispositivos móveis.');
-        return;
-      }
-
-      final isAvailable = await NfcManager.instance.isAvailable();
-      if (!isAvailable) {
-        _showSnack('NFC/RFID não disponível neste dispositivo.');
-        return;
-      }
-
-      final petId = petData['id'].toString();
-      final text = 'focinhoid:pet:$petId';
-      final deepLink = '${PetIdentificationService.baseUrl}/pets/$petId';
-
-      await NfcManager.instance.startSession(onDiscovered: (tag) async {
-        try {
-          final ndef = Ndef.from(tag);
-          if (ndef == null) {
-            throw Exception('Tag não suporta NDEF');
-          }
-          if (ndef.isWritable == false) {
-            throw Exception('Tag não é gravável');
-          }
-          final recordText = NdefRecord.createText(text);
-          final recordUri = NdefRecord.createUri(Uri.parse(deepLink));
-          final message = NdefMessage([recordText, recordUri]);
-          await ndef.write(message);
-          _showSnack('RFID gravado com sucesso');
-        } catch (e) {
-          _showSnack('Falha ao gravar RFID: ${e.toString()}');
-        } finally {
-          await NfcManager.instance.stopSession();
-        }
-      });
-    } catch (e) {
-      _showSnack('Erro: ${e.toString()}');
+    if (kIsWeb) {
+      _showSnack('NFC/RFID não disponível no Web.');
+      return;
     }
+    if (!Platform.isAndroid) {
+      _showSnack('Gravação de RFID disponível apenas no Android neste build.');
+      return;
+    }
+
+    try {
+      final availability = await NfcManager.instance.checkAvailability();
+      if (availability != NfcAvailability.enabled) {
+        bool enabled = false;
+        bool secureSupported = false;
+        bool secureEnabled = false;
+        try {
+          enabled = await NfcManagerAndroid.instance.isEnabled();
+          secureSupported = await NfcManagerAndroid.instance.isSecureNfcSupported();
+          secureEnabled = await NfcManagerAndroid.instance.isSecureNfcEnabled();
+        } catch (_) {}
+        _showSnack('NFC indisponível neste dispositivo. Detalhes: enabled=$enabled, secureSupported=$secureSupported, secureEnabled=$secureEnabled');
+      }
+    } catch (e) {
+      _showSnack('NFC indisponível: $e');
+    }
+
+    final petId = petData['id']?.toString();
+    if (petId == null || petId.isEmpty) {
+      _showSnack('ID do pet inválido para gravação.');
+      return;
+    }
+
+    final textContent = 'focinhoid:pet:$petId';
+    final base = AuthService.baseUrl;
+    final uriStr = '$base/pets/$petId';
+    final uri = Uri.parse(uriStr);
+    final scheme = uri.scheme.toLowerCase();
+    final prefixCode = scheme == 'https' ? 4 : 3; // 4=https://, 3=http://
+    final rest = uriStr.replaceFirst(RegExp('^https?://'), '');
+
+    final textPayload = Uint8List.fromList([
+      2, // status byte: lang code length (2 -> 'pt')
+      ...utf8.encode('pt'),
+      ...utf8.encode(textContent),
+    ]);
+    final uriPayload = Uint8List.fromList([
+      prefixCode,
+      ...utf8.encode(rest),
+    ]);
+
+    final message = NdefMessage(records: [
+      NdefRecord(
+        typeNameFormat: TypeNameFormat.wellKnown,
+        type: Uint8List.fromList(utf8.encode('T')),
+        identifier: Uint8List(0),
+        payload: textPayload,
+      ),
+      NdefRecord(
+        typeNameFormat: TypeNameFormat.wellKnown,
+        type: Uint8List.fromList(utf8.encode('U')),
+        identifier: Uint8List(0),
+        payload: uriPayload,
+      ),
+    ]);
+
+    await NfcManager.instance.startSession(
+      pollingOptions: {
+        NfcPollingOption.iso14443,
+        NfcPollingOption.iso15693,
+        NfcPollingOption.iso18092,
+      },
+      onDiscovered: (tag) async {
+        try {
+          final ndef = NdefAndroid.from(tag);
+          if (ndef != null) {
+            if (!ndef.isWritable) {
+              _showSnack('Tag NDEF encontrada, porém não é gravável.');
+              await NfcManager.instance.stopSession();
+              return;
+            }
+            await ndef.writeNdefMessage(message);
+            _showSnack('RFID gravado com sucesso.');
+            await NfcManager.instance.stopSession();
+            return;
+          }
+
+          // Tentar formatar se for NDEF formatable
+          final formatable = NdefFormatableAndroid.from(tag);
+          if (formatable != null) {
+            await formatable.format(message);
+            _showSnack('Tag formatada e gravada com sucesso.');
+            await NfcManager.instance.stopSession();
+            return;
+          }
+
+          _showSnack('Tag não suporta NDEF.');
+          await NfcManager.instance.stopSession();
+        } catch (e) {
+          _showSnack('Erro ao gravar NFC: $e');
+          try {
+            await NfcManager.instance.stopSession();
+          } catch (_) {}
+        }
+      },
+    );
   }
 
   void _showSnack(String msg) {

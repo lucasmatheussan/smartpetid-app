@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:nfc_manager/nfc_manager.dart';
+import 'package:nfc_manager/nfc_manager_android.dart';
+import 'package:ndef_record/ndef_record.dart';
 import '../services/pet_identification_service.dart';
 import '../services/auth_service.dart';
 import 'pet_detail_screen.dart';
@@ -43,61 +46,127 @@ class _RfidScannerScreenState extends State<RfidScannerScreen> {
   }
 
   Future<void> _startScan() async {
-    if (_sessionActive) return;
-    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-    if (!isMobile) {
+    // Web não suporta NFC
+    if (kIsWeb) {
       setState(() {
-        _message = 'RFID disponível apenas em dispositivos móveis.';
+        _message = 'NFC/RFID não disponível no Web.';
       });
       return;
     }
 
-    final isAvailable = await NfcManager.instance.isAvailable();
-    if (!isAvailable) {
+    // Verificar disponibilidade do NFC no dispositivo
+    try {
+      final availability = await NfcManager.instance.checkAvailability();
+      if (availability != NfcAvailability.enabled) {
+        bool enabled = false;
+        bool secureSupported = false;
+        bool secureEnabled = false;
+        try {
+          enabled = await NfcManagerAndroid.instance.isEnabled();
+          secureSupported = await NfcManagerAndroid.instance.isSecureNfcSupported();
+          secureEnabled = await NfcManagerAndroid.instance.isSecureNfcEnabled();
+        } catch (_) {}
+        setState(() {
+          _message = 'NFC indisponível neste dispositivo. Detalhes: enabled=$enabled, secureSupported=$secureSupported, secureEnabled=$secureEnabled';
+        });
+      }
+    } catch (e) {
       setState(() {
-        _message = 'NFC/RFID não disponível neste dispositivo.';
+        _message = 'NFC indisponível: $e';
       });
-      return;
     }
 
     setState(() {
       _sessionActive = true;
-      _message = 'Aproxime o RFID do dispositivo...';
+      _message = 'Aproxime a tag RFID/NFC...';
     });
 
-    await NfcManager.instance.startSession(onDiscovered: (NfcTag tag) async {
+    await NfcManager.instance.startSession(
+      pollingOptions: {
+        NfcPollingOption.iso14443,
+        NfcPollingOption.iso15693,
+        NfcPollingOption.iso18092,
+      },
+      onDiscovered: (NfcTag tag) async {
       try {
-        final petId = _extractPetId(tag);
+        final ndef = NdefAndroid.from(tag);
+        if (ndef == null) {
+          setState(() {
+            _message = 'Tag sem NDEF. Use uma tag com NDEF.';
+          });
+          return;
+        }
+
+        final cached = await ndef.getNdefMessage();
+        String? petId;
+
+        for (final rec in cached?.records ?? const <NdefRecord>[]) {
+          final typeNameFormat = rec.typeNameFormat;
+          final typeBytes = rec.type;
+          final payload = rec.payload;
+
+          // Texto (TNF Well Known, tipo 'T')
+          if (typeNameFormat == TypeNameFormat.wellKnown &&
+              _bytesEquals(typeBytes, utf8.encode('T')) &&
+              payload.isNotEmpty) {
+            final text = _decodeNdefText(payload);
+            petId = _parsePetId(text);
+          }
+
+          // URI (TNF Well Known, tipo 'U')
+          if (typeNameFormat == TypeNameFormat.wellKnown &&
+              _bytesEquals(typeBytes, utf8.encode('U')) &&
+              payload.isNotEmpty) {
+            final uri = _decodeNdefUri(payload);
+            if (uri != null) petId = _parsePetId(uri.toString());
+          }
+
+          if (petId != null) break;
+        }
+
         if (petId == null) {
           setState(() {
-            _message = 'RFID inválido. Use um RFID do SmartPet ID.';
+            _message = 'Não foi possível extrair o ID do pet na tag.';
           });
-        } else {
-          final result = await _petService.getPetDetails(petId);
+          return;
+        }
+
+        await NfcManager.instance.stopSession();
+        setState(() {
+          _sessionActive = false;
+          _message = 'Tag lida com ID: $petId';
+        });
+
+        // Buscar detalhes do pet e navegar
+        final auth = AuthService();
+        if (!auth.isLoggedIn) {
           if (!mounted) return;
-          if (result['success']) {
-            await NfcManager.instance.stopSession();
-            setState(() {
-              _sessionActive = false;
-            });
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => PetDetailScreen(petData: result['data']),
-              ),
-            );
-            return;
-          } else {
-            setState(() {
-              _message = result['message'] ?? 'Erro ao buscar detalhes do pet.';
-            });
-          }
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
+          return;
+        }
+
+        final resp = await _petService.getPetDetails(petId);
+        if (resp['success'] == true && resp['data'] != null) {
+          if (!mounted) return;
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => PetDetailScreen(petData: resp['data']),
+            ),
+          );
+        } else {
+          setState(() {
+            _message = resp['message'] ?? 'Falha ao carregar detalhes do pet.';
+          });
         }
       } catch (e) {
         setState(() {
-          _message = 'Erro: ${e.toString()}';
+          _message = 'Erro ao ler NFC: $e';
         });
-      } finally {
-        await NfcManager.instance.stopSession();
+        try {
+          await NfcManager.instance.stopSession();
+        } catch (_) {}
         setState(() {
           _sessionActive = false;
         });
@@ -105,37 +174,7 @@ class _RfidScannerScreenState extends State<RfidScannerScreen> {
     });
   }
 
-  String? _extractPetId(NfcTag tag) {
-    try {
-      final ndef = Ndef.from(tag);
-      if (ndef == null || ndef.cachedMessage == null) return null;
-      final records = ndef.cachedMessage!.records;
-      for (final r in records) {
-        // Try text record: payload contains language code length etc.
-        final tnf = r.typeNameFormat;
-        if (tnf == NdefTypeNameFormat.nfcWellknown &&
-            String.fromCharCodes(r.type) == 'T') {
-          final payload = r.payload;
-          if (payload.isNotEmpty) {
-            final langLen = payload[0] & 0x3F;
-            final text = String.fromCharCodes(payload.sublist(1 + langLen));
-            final id = _parsePetId(text);
-            if (id != null) return id;
-          }
-        }
-        // Try URI record
-        if (tnf == NdefTypeNameFormat.nfcWellknown &&
-            String.fromCharCodes(r.type) == 'U') {
-          final uriText = String.fromCharCodes(r.payload);
-          final id = _parsePetId(uriText);
-          if (id != null) return id;
-        }
-      }
-      return null;
-    } catch (_) {
-      return null;
-    }
-  }
+  String? _extractPetId() => null;
 
   String? _parsePetId(String content) {
     try {
@@ -153,6 +192,46 @@ class _RfidScannerScreenState extends State<RfidScannerScreen> {
     } catch (_) {
       return null;
     }
+  }
+
+  // Utilitário: comparar bytes
+  bool _bytesEquals(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  // Decodifica NDEF Texto (RTD_TEXT)
+  String _decodeNdefText(List<int> payload) {
+    final status = payload[0];
+    final langCodeLen = status & 0x3F;
+    return utf8.decode(payload.sublist(1 + langCodeLen));
+  }
+
+  // Decodifica NDEF URI (RTD_URI)
+  Uri? _decodeNdefUri(List<int> payload) {
+    if (payload.isEmpty) return null;
+    final prefixCode = payload[0];
+    final rest = utf8.decode(payload.sublist(1));
+    final prefix = _uriPrefix(prefixCode);
+    final full = '$prefix$rest';
+    return Uri.tryParse(full);
+  }
+
+  String _uriPrefix(int code) {
+    const p = [
+      '', 'http://www.', 'https://www.', 'http://', 'https://',
+      'tel:', 'mailto:', 'ftp://anonymous:anonymous@', 'ftp://ftp.', 'ftps://',
+      'sftp://', 'sms:', 'smsto:', 'mmsto:', 'geo:', 'tel:', 'urn:',
+      'news:', 'irc:', 'gopher://', 'nntp://', 'telnet://', 'imap:', 'pop:',
+      'sip:', 'sips:', 'tftp:', 'btspp://', 'btl2cap://', 'btgoep://',
+      'tcpobex://', 'irdaobex://', 'file://', 'urn:epc:id:', 'urn:epc:tag:',
+      'urn:epc:pat:', 'urn:epc:raw:', 'urn:epc:', 'urn:nfc:'
+    ];
+    if (code >= 0 && code < p.length) return p[code];
+    return '';
   }
 
   @override

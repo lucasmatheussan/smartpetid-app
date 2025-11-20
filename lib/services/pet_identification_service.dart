@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'auth_service.dart';
 
 class PetIdentificationService {
-  static const String baseUrl = 'http://192.168.1.184:8000';
+  static const String baseUrl = 'http://167.172.117.152:8000';
 
   /// Identifica um pet através de uma imagem
   Future<Map<String, dynamic>> identifyPet({
